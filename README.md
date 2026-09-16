@@ -177,6 +177,86 @@ Everything above is also asserted automatically — see
 `tests/validation_flow.rs`, which runs the same fifteen steps against a live
 Postgres and Redis.
 
+### The final response
+
+This is the actual output of the last step, captured from a running server —
+not a hand-written example. `GET /tasks/view-my-tasks` as James Bond, after the
+admin has created 5 tasks and assigned 3 of them:
+
+```http
+GET /tasks/view-my-tasks
+Authorization: Bearer <JAMES_BOND_TOKEN>
+```
+
+```json
+{
+  "user": {
+    "email": "jamesbond@example.com",
+    "role": "staff"
+  },
+  "tasks": [
+    {
+      "id": "3572e32f-30a6-4a39-b12e-474c4106239c",
+      "title": "Infiltrate the casino",
+      "status": "todo",
+      "priority": "high",
+      "assigned_to": "jamesbond@example.com"
+    },
+    {
+      "id": "9f9fb12b-72a9-42cd-b7fc-bfb8d8994880",
+      "title": "Decode the transmission",
+      "status": "todo",
+      "priority": "medium",
+      "assigned_to": "jamesbond@example.com"
+    },
+    {
+      "id": "1922665b-fc11-48b8-a825-af0a78b5e21c",
+      "title": "Recover the briefcase",
+      "status": "todo",
+      "priority": "low",
+      "assigned_to": "jamesbond@example.com"
+    }
+  ],
+  "summary": {
+    "total_assigned_tasks": 3
+  },
+  "cache": {
+    "hit": false
+  }
+}
+```
+
+Three tasks, all assigned to Bond, none of the other two leaking through. The
+task ids are real uuids from that run and will differ on yours.
+
+**Calling the identical request again** returns the same body with one field
+changed:
+
+```json
+  "cache": {
+    "hit": true
+  }
+```
+
+Everything outside the `cache` block is byte-identical between the two calls —
+verified by diffing them, and asserted in
+`tests/cache.rs::first_read_misses_and_second_read_hits`. A hit replays the
+previous database result; it does not return a different or emptier list.
+
+**After the admin reassigns one task away from Bond**, his next call shows the
+cache correctly evicted rather than serving a stale three:
+
+```json
+{
+  "tasks": ["Decode the transmission", "Recover the briefcase"],
+  "summary": { "total_assigned_tasks": 2 },
+  "cache": { "hit": false }
+}
+```
+
+This is the step that distinguishes a cache wired to the data from one that is
+merely warm: a stale cache would still report 3.
+
 ## 6. Endpoints
 
 | Endpoint | Auth | Purpose |
