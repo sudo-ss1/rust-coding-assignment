@@ -342,7 +342,24 @@ account exists. `tests/auth.rs::login_is_case_insensitive_on_email` guards this.
 crypto provider, and the omission surfaces as a runtime panic rather than a
 compile error.
 
-## 9. Tests
+## 9. Postman collection
+
+`postman/Task-Management-API.postman_collection.json` — 37 requests in 9
+folders, with 86 assertions. Tokens, user ids, and task ids are captured
+automatically by post-response scripts, so the whole flow runs without pasting
+anything by hand.
+
+```bash
+cargo run                                                    # terminal 1
+npx newman run postman/Task-Management-API.postman_collection.json   # terminal 2
+```
+
+Or import it into Postman and use the Collection Runner, top to bottom. Needs
+`APP_ENV=dev`, since the collection reads the one-time code from the dev mail
+log route. Last verified run: 37/37 requests, 86/86 assertions, 0 failures. See
+`postman/README.md` for details.
+
+## 10. Tests
 
 ```bash
 cp .env.example .env
@@ -362,6 +379,6 @@ pins `RUST_TEST_THREADS=1`; `cargo test` is therefore correct on its own.
 | `tests/cache.rs` | Miss then hit with identical payloads; per-user isolation; invalidation on assign, reassign, update, delete |
 | `tests/validation_flow.rs` | The 15-step acceptance flow end to end |
 
-## 10. Documentation
+## 11. Documentation
 
 - Design spec: `docs/superpowers/specs/2026-09-16-task-management-api-design.md`
