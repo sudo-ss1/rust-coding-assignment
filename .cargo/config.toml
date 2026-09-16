@@ -1,0 +1,5 @@
+[env]
+# The integration tests share one database and truncate it during setup, so they
+# must not run concurrently. Setting this here means `cargo test` is correct on
+# its own, rather than depending on someone remembering --test-threads=1.
+RUST_TEST_THREADS = "1"

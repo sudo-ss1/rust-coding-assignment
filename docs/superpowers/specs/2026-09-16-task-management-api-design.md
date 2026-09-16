@@ -24,7 +24,7 @@ a live Postgres and Redis, the system is correct.
 |---|---|
 | Language | Rust 1.96, edition 2024 |
 | HTTP | axum 0.8 + tower, tokio runtime |
-| Database | PostgreSQL, reachable locally on port 5433 |
+| Database | PostgreSQL 16 in Docker, `127.0.0.1:5432`, superuser `test:test` |
 | DB driver | sqlx (async, compile-time-checked queries, `uuid` + `chrono` features) |
 | Cache | Redis, via the `redis` crate with an async connection manager |
 | Passwords | Argon2id (`argon2` crate) |
@@ -38,8 +38,8 @@ there are no silent defaults for security-relevant values.
 
 | Variable | Meaning |
 |---|---|
-| `DATABASE_URL` | Postgres connection string |
-| `REDIS_URL` | Redis connection string |
+| `DATABASE_URL` | Postgres connection string, e.g. `postgres://test:test@127.0.0.1:5432/task_management` |
+| `REDIS_URL` | Redis connection string, e.g. `redis://127.0.0.1:6379` (Redis 8.8) |
 | `JWT_SECRET` | HS256 signing key; startup fails if shorter than 32 bytes |
 | `JWT_TTL_SECONDS` | Access-token lifetime, default 900 |
 | `TWOFA_TTL_SECONDS` | Challenge lifetime, default 300 |
@@ -106,6 +106,19 @@ email_logs
 
 `citext` gives case-insensitive email uniqueness at the database level, so
 `Bond@example.com` cannot become a second account.
+
+**Verified caveat:** the `citext` type makes the *unique constraint* case-insensitive,
+but it does not make every comparison so. sqlx binds a Rust `&str` as a `text`-typed
+parameter, and `citext = text` resolves to the case-*sensitive* `texteq`. Confirmed
+against this Postgres: an untyped literal matches, a `text` parameter returns zero rows.
+Every lookup by email must therefore bind `$1::citext`:
+
+```sql
+select * from users where email = $1::citext   -- correct
+select * from users where email = $1           -- silently case-sensitive
+```
+
+Without the cast, logging in as `Admin@example.com` fails while the account exists.
 
 The one-time code is stored only as an Argon2 hash. A database dump therefore does
 not hand over live second factors. `email_logs.code` holds the plaintext code, which
