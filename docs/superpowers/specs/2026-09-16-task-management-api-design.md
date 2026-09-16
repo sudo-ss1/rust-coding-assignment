@@ -439,8 +439,39 @@ One end-to-end integration test, asserting in order:
 14. Admin reassigns one task away from Bond; Bond's next call shows `cache.hit == false`
     and exactly 2 tasks.
 
+15. Bond re-reads to warm the cache (`cache.hit == true`). Admin then `PATCH`es the
+    title of one task still assigned to Bond. Bond's next call shows `cache.hit == false`
+    and the new title.
+
 Step 14 is the one that proves the cache is wired to the data rather than merely warm: a
-stale cache would still report 3.
+stale cache would still report 3. Step 15 covers the other half of the rule — an update
+that changes no assignment must still invalidate, because the cached payload embeds the
+task's fields, not just its identity.
+
+### Traceability
+
+Every stated testing expectation maps to a step above, and each is asserted explicitly
+rather than inferred from a neighbouring assertion.
+
+| Expectation | Step |
+|---|---|
+| Admin and James Bond can be created | 1 |
+| Login creates a 2FA challenge and does not immediately return a JWT | 2 |
+| Correct 2FA code returns a JWT | 5, 10 |
+| Incorrect 2FA code rejected | 4 |
+| Expired 2FA code rejected | 7 |
+| Reused 2FA code rejected | 6 |
+| Admin can create 5 tasks | 8 |
+| Admin can assign exactly 3 tasks to James Bond | 9 |
+| James Bond cannot create a task | 11 |
+| James Bond can view exactly 3 assigned tasks | 12 |
+| view-my-tasks twice shows cache.hit false, then true | 12, 13 |
+| Task assignment invalidates the affected cache | 14 |
+| Task update invalidates the affected cache | 15 |
+
+The counts in steps 8, 9, and 12 are asserted as equalities (`== 5`, `== 3`, `== 3`), not
+as lower bounds. "At least 3" would pass if authorization leaked a fourth task into Bond's
+view, which is precisely the failure the expectation exists to catch.
 
 Step 7 needs an expired challenge without a five-minute wait. The test inserts the
 challenge, then backdates `expires_at` with a direct SQL update. Expiry is compared
